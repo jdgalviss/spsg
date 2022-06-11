@@ -15,8 +15,15 @@ import utils.marching_cubes.marching_cubes as mc
 _SPLITTER = ','
 
 def get_train_files(data_path, file_list, val_file_list, max_num):
+    print("data_path:", data_path)
+    print("file_list:", file_list)
+    print("val_file_list:", val_file_list)
+    print("max_num:", max_num)
     train_files, val_files = get_train_files_3d(data_path, file_list, val_file_list, max_num)
     _OVERFIT = len(train_files) == 1
+    print("len train files: ", len(train_files)) 
+    print("len val_files: ", len(val_files)) 
+
     return train_files, val_files, _OVERFIT
 
 
@@ -61,6 +68,7 @@ def load_sdf(file, load_sparse, load_known, load_colors, is_sparse_file=True, co
     #assert os.path.isfile(file)
     assert (not load_sparse and not load_known) or (load_sparse != load_known)
     try:
+        # print("loading sdf:", file)
         fin = open(file, 'rb')
         dimx = struct.unpack('Q', fin.read(8))[0]
         dimy = struct.unpack('Q', fin.read(8))[0]
@@ -87,6 +95,7 @@ def load_sdf(file, load_sparse, load_known, load_colors, is_sparse_file=True, co
     known = None
     num_known = 0
     if load_colors and color_file is None: # chunk file
+        # print('loading_color')
         num_known = struct.unpack('Q', fin.read(8))[0]
     if load_known or num_known > 0:
         if num_known != dimx * dimy * dimz:
@@ -131,6 +140,12 @@ def load_sdf(file, load_sparse, load_known, load_colors, is_sparse_file=True, co
         return [locs, sdf], [dimz, dimy, dimx], world2grid, known, colors
     else:
         sdf = sparse_to_dense_np(locs, sdf[:,np.newaxis], dimx, dimy, dimz, -float('inf'))
+        # print("===================================================")
+        # print("colors shape:", colors.shape)
+        # print("world2grid shape:", world2grid.shape)
+        # print("sdf shape:", world2grid.shape)
+
+
         return sdf, world2grid, known, colors
 
 

@@ -45,3 +45,6 @@ If you find our work useful in your research, please consider citing:
 	year={2021}
 }
 ```
+python train.py --gpu 0 --data_path ../data/train_data --frame_info_path ../data/data-frames --train_file_list ../filelists/mp_train-jd.txt --val_file_list ../filelists/mp_train-jd.txt --save_epoch 1 --save logs/mp --max_epoch 5
+
+python test_scene_as_chunks.py --gpu 0 --input_data_path ../data/mp_sdf_2cm_input --target_data_path ../data/mp_sdf_2cm_target --test_file_list ../filelists/mp-rooms_test-jd.txt --model_path spsg.pth --output ./output --max_to_vis 20

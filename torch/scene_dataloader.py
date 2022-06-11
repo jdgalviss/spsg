@@ -46,6 +46,13 @@ class SceneDataset(torch.utils.data.Dataset):
         self.is_chunks = target_path == '' # have target path -> full scene data
         if not target_path:
             self.files = [(f,f.replace('__inc__', '__cmp__')) for f in files if (os.path.isfile(f) and os.path.isfile(f.replace('__inc__', '__cmp__')))]
+            for f in files:
+                print(f)
+                print(os.path.isfile(f))
+                print(os.path.isfile(f.replace('__inc__', '__cmp__')))
+            print("files:", files)
+            print("files:", self.files)
+
         else:
             self.files = [(f,os.path.join(target_path, os.path.basename(f))) for f in files if (os.path.isfile(f) and os.path.isfile(os.path.join(target_path, os.path.basename(f))))]
         self.input_dim = input_dim
@@ -70,6 +77,7 @@ class SceneDataset(torch.utils.data.Dataset):
         self.randomize_frames = randomize_frames
         self.overfit = num_overfit > 0        
         self.idxs = None
+        print("len self.files: ", len(self.files))
         if self.overfit:
             num_repeat = max(1, num_overfit // len(self.files))
             self.files = self.files * num_repeat

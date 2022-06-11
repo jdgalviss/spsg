@@ -406,14 +406,27 @@ class Generator(nn.Module):
     def update_sizes(self, input_max_dim):
         self.max_data_size = input_max_dim
 
-    def forward(self, x, mask, pred_color, pred_sdf):        
+    def forward(self, x, mask, pred_color, pred_sdf):  
+        # print("\n========================FORWARD========================")
+        # print("x: {}".format(x.size()))  
+        # print("mask: {}".format(mask.size())) 
+        # print("pred_color: {}".format(pred_color))      
+        # print("pred_sdf: {}".format(pred_sdf))      
+
         if self.input_mask:
             x = torch.cat([x, mask], 1)
             x_geo = x[:,:1,:,:,:]
             mask = x[:,4:,:,:,:]
+            # print("x2: {}".format(x.size()))  
+            # print("x_geo: {}".format(x_geo.size()))  
+            # print("mask2: {}".format(mask.size())) 
         else:
             x_geo = x[:,:1,:,:,:]
+            # print("x_geo: {}".format(x_geo.size()))  
+
         x_geo[torch.abs(x_geo) >= self.truncation-0.01] = 0
+        # print("x_geo2: {}".format(x_geo.size()))  
+
         
         scale_factor = 2 if self.max_data_size[0] > 1 else (1,2,2)
                 
@@ -428,14 +441,22 @@ class Generator(nn.Module):
         if pred_color:
             x_color = x[:,1:4,:,:,:]
             x_color = x_color*2-1
+            # print("x_color: {}".format(x_color.size()))  
+
             if self.input_mask:
                 masked_x = x_color * (1 - mask) + mask
                 coarse_x = self.coarse_0(torch.cat((masked_x, mask), dim=1))
             else:
-                coarse_x = self.coarse_0(x_color)            
+                coarse_x = self.coarse_0(x_color) 
+
+            # print("coarse_x: {}".format(coarse_x.size()))
             if self.pass_geo_feats:
+                # print("x_geo_in: {}".format(x_geo.size()))  
                 x_geo = self.coarse_0_geo(x_geo)
+                # print("x_geo_after_coarse_0: {}".format(x_geo.size()))  
                 coarse_x = torch.cat((coarse_x, x_geo), dim=1)
+                # print("coarse_x concatenated: {}".format(coarse_x.size()))
+
             coarse_x = self.coarse_1(coarse_x)
             coarse_x = torch.nn.functional.interpolate(coarse_x, scale_factor=scale_factor, mode=self.interpolate_mode)
             coarse_x = self.coarse_2(coarse_x)
@@ -456,7 +477,11 @@ class Generator(nn.Module):
         else:
             coarse_x = None
             out = None
-        
+        # print("output:")
+        # print("x_occ: {}".format(x_occ.size())) 
+        # print("x_sdf: {}".format(x_sdf.size())) 
+        # print("out: {}".format(out.size())) 
+
         return x_occ, x_sdf, out
 
 

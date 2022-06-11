@@ -37,6 +37,7 @@ class RayCastRGBDFunction(Function):
 class RaycastRGBD(nn.Module):
     def __init__(self, batch_size, dims3d, width, height, depth_min, depth_max, thresh_sample_dist, ray_increment, max_num_frames=1, max_num_locs_per_sample=200000, max_pixels_per_voxel=64):#32):
         super(RaycastRGBD, self).__init__()
+        print("=====================CREATING RAYCAST RGBD MODEL=====================")
         #TODO CAN MAKE THIS TRIVIALLY MORE MEMORY EFFICIENT
         self.dims3d = dims3d
         self.width = width
@@ -61,6 +62,12 @@ class RaycastRGBD(nn.Module):
         return self.max_num_locs_per_sample
     
     def forward(self, locs, vals_sdf, vals_colors, vals_normals, view_matrix, intrinsic_params):
+        print("locs: ",locs.shape)
+        print("vals_sdf: ",vals_sdf.shape)
+        print("vals_colors: ",vals_colors.shape)
+        print("vals_normals: ",vals_normals.shape)
+        print("view_matrix: ",view_matrix.shape)
+        print("intrinsic_params: ",intrinsic_params.shape)
         return RayCastRGBDFunction.apply(locs, vals_sdf, vals_colors, vals_normals, view_matrix, intrinsic_params, self.dims3d, self.width, self.height, self.depth_min, self.depth_max, self.thresh_sample_dist, self.ray_increment, self.image_color, self.image_depth, self.image_normal, self.sparse_mapping, self.mapping3dto2d, self.mapping3dto2d_num, self.d_color, self.d_depth, self.d_normal)
 
 

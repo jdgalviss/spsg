@@ -81,11 +81,16 @@ def test(dataloader, output_vis, num_to_vis):
     num_batches = len(dataloader)
     print('starting testing...')
     with torch.no_grad():
-        for t, sample in enumerate(dataloader):        
+        for t, sample in enumerate(dataloader): 
             inputs = sample['input']
             sdfs = sample['sdf']
             mask = sample['mask']
             colors = sample['colors']
+            print("inputs: {}".format(inputs.shape))
+            print("sdfs: {}".format(sdfs.shape))       
+            print("mask: {}".format(mask.shape))       
+            print("colors: {}".format(colors.shape))       
+
             
             max_input_dim = np.array(sdfs.shape[2:])
             if args.max_input_height > 0 and max_input_dim[UP_AXIS] > args.max_input_height:

@@ -36,9 +36,9 @@ parser.add_argument('--train_file_list', required=True, help='path to file list 
 parser.add_argument('--val_file_list', default='', help='path to file list of val data')
 parser.add_argument('--save', default='./logs', help='folder to output model checkpoints')
 parser.add_argument('--max_num_trainval_chunks', type=int, default=0, help='limit #train or #val chunks (0 to disable)')
-parser.add_argument('--num_workers', type=int, default=2, help='')
+parser.add_argument('--num_workers', type=int, default=8, help='')
 # model params
-parser.add_argument('--retrain', type=str, default='', help='model to load from')
+parser.add_argument('--retrain', type=str, default='', help='model to load from') #/usr/src/app/spsg/torch/spsg.pth
 parser.add_argument('--retrain_disc', type=str, default='', help='model to load from (disc)')
 parser.add_argument('--input_dim', type=int, default=0, help='#points / voxel dim.')
 # train params
@@ -52,8 +52,8 @@ parser.add_argument('--save_epoch', type=int, default=1, help='save every nth ep
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate, default=0.0001')
 parser.add_argument('--d_lr_factor', type=float, default=4, help='lr disc = d_lr_factor*lr')
 parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay.')
-parser.add_argument('--num_iters_geo_only', type=int, default=1000, help='#iters to train geo before introducing color')
-parser.add_argument('--num_iters_before_content', type=int, default=60000, help='#iters to train geo before introducing color')
+parser.add_argument('--num_iters_geo_only', type=int, default=2, help='#iters to train geo before introducing color')
+parser.add_argument('--num_iters_before_content', type=int, default=4, help='#iters to train geo before introducing color')
 parser.add_argument('--weight_occ_loss', type=float, default=1.0, help='weight geo loss vs rest (0 to disable).')
 parser.add_argument('--weight_depth_loss', type=float, default=1.0, help='weight geo loss vs rest (0 to disable).')
 parser.add_argument('--weight_sdf_loss', type=float, default=0.1, help='weight geo loss vs rest (0 to disable).')
@@ -298,23 +298,34 @@ def train(epoch, iter, dataloader, log_file, output_save):
     train_losscontent = []
     model.train()
     start = time.time()
-
+    print("trainng epoch: %d" % epoch)
     use_disc = args.weight_disc_loss > 0
     num_batches = len(dataloader)
     for t, sample in enumerate(dataloader):    
+        print("samples: ",t)
         sdfs = sample['sdf']
+        print(sdfs.shape)
         if sdfs is None:
             torch.cuda.empty_cache()
             continue
+        print("continue1")
         if sdfs.shape[0] < args.batch_size:
             torch.cuda.empty_cache()
             continue  # maintain same batch size for training
+        print("continue2")
+        print(iter > args.num_iters_geo_only)
+        print(use_disc or args.weight_depth_loss > 0)
+        print(sample['images_color'] is None)
         if iter > args.num_iters_geo_only and (use_disc or args.weight_depth_loss > 0) and sample['images_color'] is None:
-            #print('skipping no frames')
+            print('skipping no frames')
             torch.cuda.empty_cache()
-            continue
-        inputs = sample['input']
+            print('skipping no frames')
+            # continue
         
+
+        print("continue3")
+        inputs = sample['input']
+        print("inputs")
         known = sample['known']
         colors = sample['colors'].cuda()
         if args.use_loss_masking:
@@ -325,13 +336,15 @@ def train(epoch, iter, dataloader, log_file, output_save):
         pred_color = iter > args.num_iters_geo_only and (args.weight_color_loss > 0 or args.weight_style_loss > 0 or args.weight_content_loss > 0)
         compute_2dstyle = iter > args.num_iters_before_content and args.weight_style_loss > 0
         compute_2dcontent = iter > args.num_iters_before_content and args.weight_content_loss > 0
-        
+        print("loss computed")
         if use_disc:
             optimizer_disc.zero_grad()
         optimizer.zero_grad()
         mask = sample['mask'].cuda()
         output_occ = None
+        print("model forward")
         output_occ, output_sdf, output_color = model(inputs, mask, pred_sdf=pred_sdf, pred_color=pred_color)
+        print("model forward")
         output_coarse_sdf = None
         if args.weight_depth_loss == 0:
             output_sdf = [[],[]]
@@ -376,12 +389,20 @@ def train(epoch, iter, dataloader, log_file, output_save):
         target2d = None
         target_depth = None
         pred_depth = None
+
+        print("\nBools: ")
+        print(iter > args.num_iters_geo_only)
+        if (iter > args.num_iters_geo_only):
+            print(len(output_sdf[0]) > 0 )
+            if(len(output_sdf[0]) > 0 ):
+                print((args.weight_depth_loss > 0 or compute_2dstyle or compute_2dcontent or use_disc))
         
         if iter > args.num_iters_geo_only and len(output_sdf[0]) > 0 and (args.weight_depth_loss > 0 or compute_2dstyle or compute_2dcontent or use_disc):
             if len(output_sdf[0]) > raycaster_rgbd.get_max_num_locs_per_sample()*args.batch_size:
                 print('(iter %d) too many voxels for raycast (%d)' % (iter, len(output_sdf[0])))
                 torch.cuda.empty_cache()
                 continue
+
             images_color = sample['images_color'].cuda()
             images_depth = sample['images_depth'].cuda()
             poses = sample['images_pose'].cuda()
@@ -433,6 +454,11 @@ def train(epoch, iter, dataloader, log_file, output_save):
                 colors = target_for_colors[locs[:,-1],locs[:,0],locs[:,1],locs[:,2],:].float()/255.0
                 target_normals = loss_util.compute_normals_sparse(locs, vals, target_for_sdf.shape[2:], transform=torch.inverse(view_matrix))
                 raycast_color, _, raycast_normal = raycaster_rgbd(locs, vals, colors.contiguous(), target_normals, view_matrix, intrinsics)
+                print("===========================")
+                print("===========================")
+                print("===========================")
+                print("raycast_color1: ",raycast_color.shape)
+            
                 if args.filter_proj_tgt:
                     invalid = loss_util.filter_proj_target(raycast_color, args.color_thresh, args.color_space)
                     invalid = invalid.unsqueeze(3).repeat(1,1,1,3) | (raycast_color == -float('inf'))
@@ -460,6 +486,11 @@ def train(epoch, iter, dataloader, log_file, output_save):
                 color = torch.zeros(output_sdf[0].shape[0], 3).cuda()
             # raycast prediction            
             raycast_color, raycast_depth, raycast_normal = raycaster_rgbd(output_sdf[0].cuda(), output_sdf[1], color, output_normals, view_matrix, intrinsics)
+            print("===========================")
+            print("raycast_color: ",raycast_color.shape)
+            print("raycast_depth: ",raycast_depth.shape)
+            print("raycast_normal: ",raycast_normal.shape)
+
             if args.weight_by_percent_pixels:
                 weight_sample_pred2d = torch.sum((raycast_color[:,:,:,0] != -float('inf')).view(raycast_color.shape[0],-1),1).float()/float(args.style_width*args.style_height)
                 weight_sample_pred2d = torch.clamp(weight_sample_pred2d, 0, 0.3)/0.3
@@ -577,6 +608,7 @@ def train(epoch, iter, dataloader, log_file, output_save):
         iter += 1
         if iter % 20 == 0:
             took = time.time() - start
+            print("iter1!!!!!!!!!!!!!!")
             print_log(log_file, epoch, iter, train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, None, None, None, None, None, None, None, None, None, None, None, None, took)
         if iter % 10000 == 0:
             torch.save({'epoch': epoch,'state_dict': model.state_dict(),'optimizer' : optimizer.state_dict()}, os.path.join(args.save, 'model-iter%s-epoch%s.pth' % (iter, epoch)))
@@ -959,13 +991,17 @@ def main():
         start = time.time()
 
         train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, iter = train(epoch, iter, train_dataloader, log_file, output_save=(epoch % args.save_epoch == 0))
-        if has_val:
-            val_losses, val_lossocc, val_iouocc, val_losssdf, val_lossdepth, val_losscolor, val_lossdisc, val_lossdisc_real, val_lossdisc_fake, val_lossgen, val_lossstyle, val_losscontent = test(epoch, iter, val_dataloader, log_file_val, output_save=(epoch % args.save_epoch == 0))
-        took = time.time() - start
-        if has_val:            
-            print_log(log_file_val, epoch, iter, train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, val_losses, val_lossocc, val_iouocc, val_losssdf, val_lossdepth, val_losscolor, val_lossdisc, val_lossdisc_real, val_lossdisc_fake, val_lossgen, val_lossstyle, val_losscontent, took)
-        else:
-            print_log(log_file, epoch, iter, train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, None, None, None, None, None, None, None, None, None, None, None, None, took)
+        # if has_val:
+        #     val_losses, val_lossocc, val_iouocc, val_losssdf, val_lossdepth, val_losscolor, val_lossdisc, val_lossdisc_real, val_lossdisc_fake, val_lossgen, val_lossstyle, val_losscontent = test(epoch, iter, val_dataloader, log_file_val, output_save=(epoch % args.save_epoch == 0))
+        # took = time.time() - start
+        # if has_val:
+        #     print("has_val!!!!!!!!!!!!!!")
+
+        #     print_log(log_file_val, epoch, iter, train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, val_losses, val_lossocc, val_iouocc, val_losssdf, val_lossdepth, val_losscolor, val_lossdisc, val_lossdisc_real, val_lossdisc_fake, val_lossgen, val_lossstyle, val_losscontent, took)
+        # else:
+        #     print("val!!!!!!!!!!!!!!")
+
+        print_log(log_file, epoch, iter, train_losses, train_lossocc, train_iouocc, train_losssdf, train_lossdepth, train_losscolor, train_lossdisc, train_lossdisc_real, train_lossdisc_fake, train_lossgen, train_lossstyle, train_losscontent, None, None, None, None, None, None, None, None, None, None, None, None, took)
         torch.save({'epoch': epoch + 1,'state_dict': model.state_dict(),'optimizer' : optimizer.state_dict()}, os.path.join(args.save, 'model-epoch-%s.pth' % epoch))
         if args.weight_disc_loss > 0:
             torch.save({'epoch': epoch + 1,'state_dict': disc.state_dict(),'optimizer' : optimizer_disc.state_dict()}, os.path.join(args.save, 'disc-epoch-%s.pth' % epoch))
