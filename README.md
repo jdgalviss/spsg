@@ -45,7 +45,7 @@ If you find our work useful in your research, please consider citing:
 	year={2021}
 }
 ```
-python train.py --gpu 0 --data_path ../data/train_data --frame_info_path ../data/data-frames --train_file_list ../filelists/mp_train-jdg.txt --val_file_list ../filelists/mp_train-jdg.txt --save_epoch 1 --save logs/mp --max_epoch 5
+python train.py --gpu 0 --data_path ../data/train_data --frame_info_path ../data/data-frames --train_file_list ../filelists/mp_train-jdg.txt --val_file_list ../filelists/mp_train-jdg.txt --save_epoch 1 --save logs/mp --max_epoch 500
 
 python train.py --gpu 0 --data_path ../data/train_data --frame_info_path ../data/data-frames --train_file_list ../filelists/mp_train-jdg.txt --save_epoch 1 --save logs/mp --max_epoch 50
 

@@ -6,7 +6,7 @@
 #include <vector>
 #include <cmath>
 #include "cuda_SimpleMatrixUtil.h"
-
+#include <iostream>
 #define T_PER_BLOCK 8
 #define NUM_GROUPS_X 1024
 
@@ -350,6 +350,7 @@ __global__ void raycast_rgbd_cuda_backward_kernel(
 		if (idx >= 0) {
 			const int num = mapping3dto2d_num[idx];
 			if (tidx < num) {
+
 				const int pidx = mapping3dto2d[idx*maxPixelsPerVoxel + tidx];
 				const int py = pidx / image_width;
 				const int px = pidx % image_width;
@@ -500,16 +501,23 @@ void raycast_rgbd_cuda_backward(
 	const int dimy = dims_accessor[2];
 	const int dimz = dims_accessor[3];
 	const int maxPixelsPerVoxel = (int)mapping3dto2d.size(1);
-
+	// std::cout<<"HellooooomaxPixelsPerVoxel: "<<maxPixelsPerVoxel<<std::endl;
 	cutilSafeCall(cudaMemset(d_color.data<float>(), 0, sizeof(float)*d_color.size(0)*d_color.size(1)));
+	// std::cout<<"HellooooomaxPixelsPerVoxel: "<<maxPixelsPerVoxel<<std::endl;
+	
 	cutilSafeCall(cudaMemset(d_depth.data<float>(), 0, sizeof(float)*d_depth.size(0)*d_depth.size(1)));
+	// std::cout<<"HellooooomaxPixelsPerVoxel: "<<maxPixelsPerVoxel<<std::endl;
+	
 	cutilSafeCall(cudaMemset(d_normals.data<float>(), 0, sizeof(float)*d_normals.size(0)*d_normals.size(1)));
+	// std::cout<<"HellooooomaxPixelsPerVoxel: "<<maxPixelsPerVoxel<<std::endl;
+
 #ifdef _DEBUG
 		cutilSafeCall(cudaDeviceSynchronize());
 		cutilCheckMsg(__FUNCTION__);
 #endif
 
-	const dim3 gridSize(dimz, dimy*dimx, batch_size);
+
+	const dim3 gridSize(dimz, dimy*dimx, batch_size); //TODO: gridsize is not correct -> fixed only to deal with CUDA limit
 	const dim3 blockSize(64);
 	raycast_rgbd_cuda_backward_kernel<<<gridSize, blockSize>>>(
 			grad_color.data<float>(),
