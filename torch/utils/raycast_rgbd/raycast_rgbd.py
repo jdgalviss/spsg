@@ -37,7 +37,6 @@ class RayCastRGBDFunction(Function):
 class RaycastRGBD(nn.Module):
     def __init__(self, batch_size, dims3d, width, height, depth_min, depth_max, thresh_sample_dist, ray_increment, max_num_frames=1, max_num_locs_per_sample=200000, max_pixels_per_voxel=64):#32):
         super(RaycastRGBD, self).__init__()
-        print("=====================CREATING RAYCAST RGBD MODEL=====================")
         #TODO CAN MAKE THIS TRIVIALLY MORE MEMORY EFFICIENT
         self.dims3d = dims3d
         self.width = width
